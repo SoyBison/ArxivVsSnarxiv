@@ -3,6 +3,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from abc import ABC, abstractmethod
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import accuracy_score, roc_auc_score, roc_curve
 from random import random, choice
 import multiprocessing as mp
 import os
@@ -10,7 +16,9 @@ import csv
 from functools import partial
 from copy import copy
 from tqdm import tqdm
+import time
 from selenium.webdriver.firefox.options import Options
+import pickle
 
 
 class element_has_text(object):
@@ -32,7 +40,7 @@ class element_has_text(object):
             return False
 
 
-def start_driver(driver_type='Firefox', headless=True):
+def start_driver(driver_type='Chrome', headless=True):
     """
     Starts a webdriver of the type driver_type
 
@@ -48,7 +56,7 @@ def start_driver(driver_type='Firefox', headless=True):
         'Safari': webdriver.Safari,
         'Edge': webdriver.Edge,
         'Firefox': webdriver.Firefox
-    }[driver_type]
+        }[driver_type]
     driver = driver(options=options)
     driver.get('http://snarxiv.org/vs-arxiv/')
     return driver
@@ -173,6 +181,25 @@ class Longest(Strategy):
             return choice([lhs, rhs])
         else:
             return rhs
+
+class NaiveBayes(Strategy):
+    def __init__(self):
+        super(NaiveBayes, self).__init__()
+        try:
+            with open('nbmodel.pkl', 'rb+') as f:
+                model, threshold = pickle.load(f)
+        except FileNotFoundError:
+            raise(FileNotFoundError('Could Not Create Strategy, no pickled model found.'))
+        
+        self.model = model
+        self.threshold = threshold
+    
+    def optimize(self, lhs, rhs):
+        ltext = lhs.text
+        rtext = rhs.text
+
+        
+
 
 
 def add_to_dataset(filename='avs.csv'):
