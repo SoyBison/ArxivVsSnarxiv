@@ -16,8 +16,9 @@ import csv
 from functools import partial
 from copy import copy
 from tqdm import tqdm
+import numpy as np
 import time
-from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 import pickle
 
 
@@ -40,24 +41,21 @@ class element_has_text(object):
             return False
 
 
-def start_driver(driver_type='Chrome', headless=True):
+def start_driver(driver_type='Chrome'):
     """
     Starts a webdriver of the type driver_type
 
-    :param bool headless: Minimizes the driver immediately, currently only works for firefox.
+    :param bool headless: Minimizes the driver immediately, currently only works for chrome.
     :param str driver_type: Which browser to use.
     :return: WebDriver
     """
-    options = Options()
-    if headless:
-        options.headless = True
     driver = {
         'Chrome': webdriver.Chrome,
         'Safari': webdriver.Safari,
         'Edge': webdriver.Edge,
         'Firefox': webdriver.Firefox
         }[driver_type]
-    driver = driver(options=options)
+    driver = driver()
     driver.get('http://snarxiv.org/vs-arxiv/')
     return driver
 
@@ -112,7 +110,7 @@ class Strategy(ABC):
         else:
             return 1
 
-    def play(self, driver_type: str = 'Firefox', n=1000):
+    def play(self, driver_type: str = 'Chrome', n=1000):
         driver = start_driver(driver_type=driver_type)
         record = []
         count = 0
@@ -129,7 +127,7 @@ class Strategy(ABC):
         driver.close()
         return record
 
-    def play_mp(self, driver_type: str = 'Firefox', n=250, threads=4):
+    def play_mp(self, driver_type: str = 'Chrome', n=250, threads=4):
         if mp.cpu_count() < threads:
             print('More threads requested than processors available, are you sure?')
         player = partial(self.play, driver_type=driver_type, n=n)
@@ -193,12 +191,13 @@ class NaiveBayes(Strategy):
         
         self.model = model
         self.threshold = threshold
-    
-    def optimize(self, lhs, rhs):
-        ltext = lhs.text
-        rtext = rhs.text
 
         
+    def optimize(self, lhs, rhs):
+        ops = (lhs, rhs)
+        probs = self.model.predict_proba(o.text for o in ops)[:, 1]
+        choice = np.argmax(probs)
+        return ops[choice]
 
 
 
@@ -232,8 +231,10 @@ def make_data(n, fname='avs.csv'):
 
 
 def main():
-    make_data(10000)
-
+    nbstrat = NaiveBayes()
+    record = nbstrat.play_mp(threads=4)
+    with open('./records/nb-2-29-2020-1.pkl') as f:
+        pickle.dump(record, f)
 
 if __name__ == '__main__':
     main()
